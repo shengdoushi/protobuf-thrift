@@ -328,7 +328,12 @@ func (g *protoGenerator) handleEnum(e *thrifter.Enum) {
 			}
 			name := utils.CaseConvert(g.conf.fieldCase, ele.Ident)
 			g.writeIndent()
-			g.protoContent.WriteString(fmt.Sprintf("%s = %d;", name, ele.ID))
+			if ele.ID != 0 {
+				lastEnumValue = ele.ID
+			} else {
+				lastEnumValue++
+			}
+			g.protoContent.WriteString(fmt.Sprintf("%s = %d;", name, lastEnumValue))
 
 			// move to end token of the enum element node
 			g.currentToken = ele.EndToken
