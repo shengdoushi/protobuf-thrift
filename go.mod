@@ -7,3 +7,5 @@ require (
 	github.com/emicklei/proto v1.9.0
 	github.com/iancoleman/strcase v0.1.3
 )
+
+replace github.com/YYCoder/protobuf-thrift => ./

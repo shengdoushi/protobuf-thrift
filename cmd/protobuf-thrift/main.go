@@ -1,4 +1,4 @@
-package protobuf_thrift
+package main
 
 import (
 	pbThrift "github.com/YYCoder/protobuf-thrift"
