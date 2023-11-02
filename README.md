@@ -10,7 +10,7 @@
 
 ```shell
 git clone git@github.com:shengdoushi/protobuf-thrift.git
-go install cmd/protobuf-thrift    
+go install ./cmd/protobuf-thrift    
 ```
 
 # protobuf-thrift
