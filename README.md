@@ -1,3 +1,16 @@
+# 本 Fork 修改内容
+
+1. thrift=>proto 文件时， 支持 thrift 文件中 enum 不显示设置对应数值, 按 thrift 默认规则从0开始
+2. 命令行参数 name-case 与 field-case 添加一个 keep 取值， 意即不对名字做转换
+3. exe/main.go 移动到 cmd/protobuf-thrift/main.go 中, 方便 go install 
+
+使用:
+
+```shell
+git clone git@github.com:shengdoushi/protobuf-thrift.git
+go install cmd/protobuf-thrift    
+```
+
 # protobuf-thrift
 Little cli utility for lazy guy😉 ~ Transforming protobuf idl to thrift, and vice versa.
 
