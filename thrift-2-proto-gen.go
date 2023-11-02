@@ -284,6 +284,7 @@ func (g *protoGenerator) handleComment(tok *thrifter.Token) {
 
 func (g *protoGenerator) handleEnum(e *thrifter.Enum) {
 	hasTraverseFirstElement := false
+	lastEnumValue := -1
 
 	for g.currentToken != e.EndToken {
 		switch g.currentToken.Type {
