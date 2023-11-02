@@ -566,7 +566,7 @@ func (g *protoGenerator) Sink() (err error) {
 			}
 
 			resName := utils.CaseConvert("upperFirstChar", utils.CaseConvert(g.conf.nameCase, rpcFun.Ident)+"Response")
-			if utils.CaseConvert(g.conf.nameCase, rpcFun.FunctionType.Ident) != resName {
+			if rpcFun.FunctionType == nil || utils.CaseConvert(g.conf.nameCase, rpcFun.FunctionType.Ident) != resName {
 				g.protoContent.WriteString(fmt.Sprintf("message %s {\n", resName))
 				if rpcFun.FunctionType != nil {
 					g.writeFunctionArgs([]*thrifter.Field{
