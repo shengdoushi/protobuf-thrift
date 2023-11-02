@@ -28,6 +28,8 @@ func CaseConvert(strCase string, str string) (res string) {
 		res = strcase.ToCamel(name)
 	case "screamingSnakeCase":
 		res = strcase.ToScreamingSnake(name)
+	case "keep":
+		res = name
 	}
 
 	if strings.Contains(str, ".") {
