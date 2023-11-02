@@ -248,6 +248,7 @@ func (g *generator) initSubGenerator(fileInfos []FileInfo) (err error) {
 				nameCase:       g.conf.NameCase,
 				syntax:         g.conf.Syntax,
 				expSwitches:    g.conf.ExpSwitches,
+				fixNamespace:   g.conf.FixNamespace,
 			}
 			generator, err = NewProtoGenerator(conf)
 			if err != nil {
@@ -297,6 +298,7 @@ func (g *generator) initSubGeneratorForRawContent() (err error) {
 			nameCase:       g.conf.NameCase,
 			syntax:         g.conf.Syntax,
 			expSwitches:    g.conf.ExpSwitches,
+			fixNamespace:   g.conf.FixNamespace,
 		}
 		generator, err = NewProtoGenerator(conf)
 		if err != nil {

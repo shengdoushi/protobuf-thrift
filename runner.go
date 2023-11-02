@@ -35,13 +35,14 @@ type RunnerConfig struct {
 	FieldCase      string
 	NameCase       string
 	ExpSwitches    []string
+	FixNamespace   string
 
 	// pb config
 	Syntax int // 2 or 3
 }
 
 func NewRunner() (res *Runner, err error) {
-	var rawContent, inputPath, outputDir, taskType, useSpaceIndent, indentSpace, expSwitch string
+	var rawContent, inputPath, outputDir, taskType, useSpaceIndent, indentSpace, expSwitch, fixNamespace string
 	var nameCase, fieldCase string
 	var syntaxStr, recursiveStr string
 
@@ -56,6 +57,7 @@ func NewRunner() (res *Runner, err error) {
 	flag.StringVar(&nameCase, "name-case", "camelCase", "Text case for enum and message or struct name, available options: camelCase, snakeCase, kababCase, pascalCase, screamingSnakeCase")
 	flag.StringVar(&syntaxStr, "syntax", "3", "Syntax for generated protobuf idl")
 	flag.StringVar(&expSwitch, "exp-switch", "", "experimental switch, available options: gformat")
+	flag.StringVar(&fixNamespace, "fix-namespace", "", "fix namespace")
 
 	flag.Parse() // after declaring flags we need to call it
 
@@ -114,6 +116,7 @@ func NewRunner() (res *Runner, err error) {
 		Syntax:         syntax,
 		Recursive:      recursive,
 		ExpSwitches:    strings.Split(expSwitch, ","),
+		FixNamespace:   fixNamespace,
 	}
 	res = &Runner{
 		Config: config,

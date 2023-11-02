@@ -36,6 +36,7 @@ type ProtoGeneratorConfig struct {
 	fieldCase      string
 	nameCase       string
 	expSwitches    []string
+	fixNamespace   string
 
 	// pb config
 	syntax int // 2 or 3
@@ -195,7 +196,11 @@ func (g *protoGenerator) handleSyntax() {
 
 func (g *protoGenerator) handleNamespace(node *thrifter.Namespace) {
 	if g.packageDeclare == "" {
-		g.protoContent.WriteString(fmt.Sprintf("package %s;", node.Value))
+		namespace := node.Value
+		if g.conf.fixNamespace != "" {
+			namespace = g.conf.fixNamespace
+		}
+		g.protoContent.WriteString(fmt.Sprintf("package %s;", namespace))
 		g.packageDeclare = node.Value
 	}
 	return
