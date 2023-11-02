@@ -38,13 +38,15 @@ type RunnerConfig struct {
 	FixNamespace   string
 
 	// pb config
-	Syntax int // 2 or 3
+	Syntax             int // 2 or 3
+	ForceFieldOptional bool
 }
 
 func NewRunner() (res *Runner, err error) {
 	var rawContent, inputPath, outputDir, taskType, useSpaceIndent, indentSpace, expSwitch, fixNamespace string
 	var nameCase, fieldCase string
 	var syntaxStr, recursiveStr string
+	var forceFieldOptional bool
 
 	// flags declaration using flag package
 	flag.StringVar(&taskType, "t", "", "proto => thrift or thrift => proto, valid values proto2thrift and thrift2proto")
@@ -58,6 +60,7 @@ func NewRunner() (res *Runner, err error) {
 	flag.StringVar(&syntaxStr, "syntax", "3", "Syntax for generated protobuf idl")
 	flag.StringVar(&expSwitch, "exp-switch", "", "experimental switch, available options: gformat")
 	flag.StringVar(&fixNamespace, "fix-namespace", "", "fix namespace")
+	flag.BoolVar(&forceFieldOptional, "force-field-optional", false, "force field optional")
 
 	flag.Parse() // after declaring flags we need to call it
 
@@ -105,18 +108,19 @@ func NewRunner() (res *Runner, err error) {
 	}
 
 	config := &RunnerConfig{
-		RawContent:     rawContent,
-		InputPath:      inputPath,
-		OutputDir:      outputDir,
-		UseSpaceIndent: spaceIndent,
-		IndentSpace:    indentSpace,
-		FieldCase:      fieldCase,
-		NameCase:       nameCase,
-		Task:           task,
-		Syntax:         syntax,
-		Recursive:      recursive,
-		ExpSwitches:    strings.Split(expSwitch, ","),
-		FixNamespace:   fixNamespace,
+		RawContent:         rawContent,
+		InputPath:          inputPath,
+		OutputDir:          outputDir,
+		UseSpaceIndent:     spaceIndent,
+		IndentSpace:        indentSpace,
+		FieldCase:          fieldCase,
+		NameCase:           nameCase,
+		Task:               task,
+		Syntax:             syntax,
+		Recursive:          recursive,
+		ExpSwitches:        strings.Split(expSwitch, ","),
+		FixNamespace:       fixNamespace,
+		ForceFieldOptional: forceFieldOptional,
 	}
 	res = &Runner{
 		Config: config,

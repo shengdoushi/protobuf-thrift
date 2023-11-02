@@ -238,17 +238,18 @@ func (g *generator) initSubGenerator(fileInfos []FileInfo) (err error) {
 		} else if g.conf.Task == TASK_FILE_THRIFT2PROTO {
 			var generator SubGenerator
 			conf := &ProtoGeneratorConfig{
-				taskType:       g.conf.Task,
-				filePath:       path,
-				fileName:       filename,
-				outputDir:      outputDir,
-				useSpaceIndent: g.conf.UseSpaceIndent,
-				indentSpace:    g.conf.IndentSpace,
-				fieldCase:      g.conf.FieldCase,
-				nameCase:       g.conf.NameCase,
-				syntax:         g.conf.Syntax,
-				expSwitches:    g.conf.ExpSwitches,
-				fixNamespace:   g.conf.FixNamespace,
+				taskType:           g.conf.Task,
+				filePath:           path,
+				fileName:           filename,
+				outputDir:          outputDir,
+				useSpaceIndent:     g.conf.UseSpaceIndent,
+				indentSpace:        g.conf.IndentSpace,
+				fieldCase:          g.conf.FieldCase,
+				nameCase:           g.conf.NameCase,
+				syntax:             g.conf.Syntax,
+				expSwitches:        g.conf.ExpSwitches,
+				fixNamespace:       g.conf.FixNamespace,
+				forceFieldOptional: g.conf.ForceFieldOptional,
 			}
 			generator, err = NewProtoGenerator(conf)
 			if err != nil {
@@ -289,16 +290,17 @@ func (g *generator) initSubGeneratorForRawContent() (err error) {
 	} else if g.conf.Task == TASK_CONTENT_THRIFT2PROTO {
 		var generator SubGenerator
 		conf := &ProtoGeneratorConfig{
-			taskType:       g.conf.Task,
-			rawContent:     g.conf.RawContent,
-			filePath:       path,
-			useSpaceIndent: g.conf.UseSpaceIndent,
-			indentSpace:    g.conf.IndentSpace,
-			fieldCase:      g.conf.FieldCase,
-			nameCase:       g.conf.NameCase,
-			syntax:         g.conf.Syntax,
-			expSwitches:    g.conf.ExpSwitches,
-			fixNamespace:   g.conf.FixNamespace,
+			taskType:           g.conf.Task,
+			rawContent:         g.conf.RawContent,
+			filePath:           path,
+			useSpaceIndent:     g.conf.UseSpaceIndent,
+			indentSpace:        g.conf.IndentSpace,
+			fieldCase:          g.conf.FieldCase,
+			nameCase:           g.conf.NameCase,
+			syntax:             g.conf.Syntax,
+			expSwitches:        g.conf.ExpSwitches,
+			fixNamespace:       g.conf.FixNamespace,
+			forceFieldOptional: g.conf.ForceFieldOptional,
 		}
 		generator, err = NewProtoGenerator(conf)
 		if err != nil {

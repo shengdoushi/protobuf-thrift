@@ -39,7 +39,8 @@ type ProtoGeneratorConfig struct {
 	fixNamespace   string
 
 	// pb config
-	syntax int // 2 or 3
+	syntax             int // 2 or 3
+	forceFieldOptional bool
 }
 
 func (c ProtoGeneratorConfig) HasSwitch(name string) bool {
@@ -360,7 +361,7 @@ func (g *protoGenerator) handleEnum(e *thrifter.Enum) {
 			} else {
 				lastEnumValue++
 			}
-			g.protoContent.WriteString(fmt.Sprintf("%s = %d;", name, lastEnumValue))
+			g.protoContent.WriteString(fmt.Sprintf("%s_%s = %d;", e.Ident, name, lastEnumValue))
 
 			// move to end token of the enum element node
 			g.currentToken = ele.EndToken
@@ -437,7 +438,7 @@ func (g *protoGenerator) handleStruct(s *thrifter.Struct) {
 				g.protoContent.WriteString(fmt.Sprintf("map<%s, %s> %s = %d;", keyType, fieldType, name, ele.ID))
 
 			default:
-				optional := g.conf.syntax == 2 && ele.Requiredness == "optional"
+				optional := g.conf.syntax == 2 && ele.Requiredness == "optional" || g.conf.forceFieldOptional
 				typeNameOrIdent := ""
 				if ele.FieldType.Type == thrifter.FIELD_TYPE_BASE {
 					typeNameOrIdent = ele.FieldType.BaseType
@@ -532,7 +533,7 @@ func (g *protoGenerator) writeFunctionArgs(args []*thrifter.Field) {
 			g.protoContent.WriteString(fmt.Sprintf("map<%s, %s> %s = %d;", keyType, fieldType, name, ele.ID))
 
 		default:
-			optional := g.conf.syntax == 2 && ele.Requiredness == "optional"
+			optional := g.conf.syntax == 2 && ele.Requiredness == "optional" || g.conf.forceFieldOptional
 			typeNameOrIdent := ""
 			if ele.FieldType.Type == thrifter.FIELD_TYPE_BASE {
 				typeNameOrIdent = ele.FieldType.BaseType
