@@ -7,10 +7,11 @@
 5. 新增一个 fix-namespace 参数， 在生成的 proto 文件中强制更改包名
 
 
-使用:
+安装:
 
 ```shell
 git clone git@github.com:shengdoushi/protobuf-thrift.git
+cd protobuf-thrift
 go install ./cmd/protobuf-thrift    
 ```
 
