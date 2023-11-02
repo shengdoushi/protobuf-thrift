@@ -247,6 +247,7 @@ func (g *generator) initSubGenerator(fileInfos []FileInfo) (err error) {
 				fieldCase:      g.conf.FieldCase,
 				nameCase:       g.conf.NameCase,
 				syntax:         g.conf.Syntax,
+				expSwitches:    g.conf.ExpSwitches,
 			}
 			generator, err = NewProtoGenerator(conf)
 			if err != nil {
@@ -295,6 +296,7 @@ func (g *generator) initSubGeneratorForRawContent() (err error) {
 			fieldCase:      g.conf.FieldCase,
 			nameCase:       g.conf.NameCase,
 			syntax:         g.conf.Syntax,
+			expSwitches:    g.conf.ExpSwitches,
 		}
 		generator, err = NewProtoGenerator(conf)
 		if err != nil {

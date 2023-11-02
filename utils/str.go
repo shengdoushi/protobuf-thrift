@@ -30,6 +30,14 @@ func CaseConvert(strCase string, str string) (res string) {
 		res = strcase.ToScreamingSnake(name)
 	case "keep":
 		res = name
+	case "upperFirstChar":
+		if len(name) > 0 {
+			res = strings.ToUpper(name[0:1]) + name[1:]
+		}
+	case "lowerFirstChar":
+		if len(name) > 0 {
+			res = strings.ToLower(name[0:1]) + name[1:]
+		}
 	}
 
 	if strings.Contains(str, ".") {

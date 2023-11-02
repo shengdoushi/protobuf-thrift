@@ -21,6 +21,7 @@ type protoGenerator struct {
 	protoContent   bytes.Buffer
 	currentToken   *thrifter.Token
 	packageDeclare string // used to detect whether has duplicate package
+	thriftRpcFuncs []*thrifter.Function
 }
 
 type ProtoGeneratorConfig struct {
@@ -34,9 +35,19 @@ type ProtoGeneratorConfig struct {
 	indentSpace    string
 	fieldCase      string
 	nameCase       string
+	expSwitches    []string
 
 	// pb config
 	syntax int // 2 or 3
+}
+
+func (c ProtoGeneratorConfig) HasSwitch(name string) bool {
+	for _, s := range c.expSwitches {
+		if s == name {
+			return true
+		}
+	}
+	return false
 }
 
 func NewProtoGenerator(conf *ProtoGeneratorConfig) (res SubGenerator, err error) {
@@ -258,8 +269,18 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 			}
 			// oneway/throws/options will be ignored.
 			g.writeIndent()
+
+			if g.conf.HasSwitch("gformat") {
+				if !strings.HasSuffix(resName, "Request") {
+					reqName = utils.CaseConvert("upperFirstChar", name+"Request")
+				}
+				if !strings.HasSuffix(resName, "Response") {
+					resName = utils.CaseConvert("upperFirstChar", name+"Response")
+				}
+			}
 			g.protoContent.WriteString(fmt.Sprintf("rpc %s(%s) returns (%s) {}", name, reqName, resName))
 
+			g.thriftRpcFuncs = append(g.thriftRpcFuncs, function)
 			// move to end token of the function node
 			g.currentToken = function.EndToken
 		}
@@ -467,9 +488,95 @@ func (g *protoGenerator) basicTypeConverter(t string) (res string, err error) {
 	}
 	return
 }
+func (g *protoGenerator) writeFunctionArgs(args []*thrifter.Field) {
+	for _, ele := range args {
+		name := utils.CaseConvert(g.conf.fieldCase, ele.Ident)
+		switch ele.FieldType.Type {
+		// set would be list
+		case thrifter.FIELD_TYPE_LIST, thrifter.FIELD_TYPE_SET:
+			// TODO: support nested list/set/map
+			typeNameOrIdent := ""
+			if ele.FieldType.List.Elem.Type == thrifter.FIELD_TYPE_BASE {
+				typeNameOrIdent = ele.FieldType.List.Elem.BaseType
+			} else {
+				typeNameOrIdent = ele.FieldType.List.Elem.Ident
+			}
+			fieldType, _ := g.typeConverter(typeNameOrIdent)
+
+			g.writeIndent()
+			g.protoContent.WriteString(fmt.Sprintf("repeated %s %s = %d;", fieldType, name, ele.ID))
+
+		case thrifter.FIELD_TYPE_MAP:
+			optional := g.conf.syntax == 2 && ele.Requiredness == "optional"
+			fieldType, keyType := "", ""
+			// TODO: support nested types for map value
+			if ele.FieldType.Map.Value.Type == thrifter.FIELD_TYPE_BASE {
+				fieldType, _ = g.typeConverter(ele.FieldType.Map.Value.BaseType)
+			} else {
+				fieldType, _ = g.typeConverter(ele.FieldType.Map.Value.Ident)
+			}
+			if ele.FieldType.Map.Key.Type == thrifter.FIELD_TYPE_BASE {
+				keyType, _ = g.typeConverter(ele.FieldType.Map.Key.BaseType)
+			} else {
+				keyType, _ = g.typeConverter(ele.FieldType.Map.Key.Ident)
+			}
+			g.writeIndent()
+			if optional {
+				g.protoContent.WriteString("optional ")
+			}
+			g.protoContent.WriteString(fmt.Sprintf("map<%s, %s> %s = %d;", keyType, fieldType, name, ele.ID))
+
+		default:
+			optional := g.conf.syntax == 2 && ele.Requiredness == "optional"
+			typeNameOrIdent := ""
+			if ele.FieldType.Type == thrifter.FIELD_TYPE_BASE {
+				typeNameOrIdent = ele.FieldType.BaseType
+			} else {
+				typeNameOrIdent = ele.FieldType.Ident
+			}
+			fieldType, _ := g.typeConverter(typeNameOrIdent)
+
+			g.writeIndent()
+			if optional {
+				g.protoContent.WriteString("optional ")
+			}
+
+			g.protoContent.WriteString(fmt.Sprintf("%s %s = %d;", fieldType, name, ele.ID))
+		}
+		g.protoContent.WriteString("\n")
+
+	}
+}
 
 // write thrift code from thriftAST to output
 func (g *protoGenerator) Sink() (err error) {
+
+	if g.conf.HasSwitch("gformat") {
+		for _, rpcFun := range g.thriftRpcFuncs {
+			reqName := utils.CaseConvert("upperFirstChar", utils.CaseConvert(g.conf.nameCase, rpcFun.Ident)+"Request")
+			if len(rpcFun.Args) != 1 || utils.CaseConvert(g.conf.nameCase, rpcFun.Args[0].Ident) != reqName {
+				g.protoContent.WriteString(fmt.Sprintf("message %s {\n", reqName))
+				g.writeFunctionArgs(rpcFun.Args)
+				g.protoContent.WriteString("\n}\n\n")
+			}
+
+			resName := utils.CaseConvert("upperFirstChar", utils.CaseConvert(g.conf.nameCase, rpcFun.Ident)+"Response")
+			if utils.CaseConvert(g.conf.nameCase, rpcFun.FunctionType.Ident) != resName {
+				g.protoContent.WriteString(fmt.Sprintf("message %s {\n", resName))
+				if rpcFun.FunctionType.Ident != "" {
+					g.writeFunctionArgs([]*thrifter.Field{
+						&thrifter.Field{
+							FieldType: rpcFun.FunctionType,
+							Ident:     utils.CaseConvert("lowerFirstChar", rpcFun.FunctionType.Ident),
+							ID:        1,
+						},
+					})
+				}
+				g.protoContent.WriteString("\n}\n\n")
+			}
+		}
+	}
+
 	if g.conf.outputDir != "" {
 		var file *os.File
 		err = os.MkdirAll(g.conf.outputDir, 0755)

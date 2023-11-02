@@ -3,6 +3,8 @@
 1. thrift=>proto 文件时， 支持 thrift 文件中 enum 不显示设置对应数值, 按 thrift 默认规则从0开始
 2. 命令行参数 name-case 与 field-case 添加一个 keep 取值， 意即不对名字做转换
 3. exe/main.go 移动到 cmd/protobuf-thrift/main.go 中, 方便 go install 
+4. 新增一个命令行参数 exp-switch, 取值 gformat 时， 会自动对生成的 proto 中的 rpc 方法参数和返回值， 进行 *Request, *Response 包装
+
 
 使用:
 
