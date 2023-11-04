@@ -41,6 +41,8 @@ type ProtoGeneratorConfig struct {
 	// pb config
 	syntax             int // 2 or 3
 	forceFieldOptional bool
+	baseProtoFile      string
+	baseProtoNs        string
 }
 
 func (c ProtoGeneratorConfig) HasSwitch(name string) bool {
@@ -203,6 +205,10 @@ func (g *protoGenerator) handleNamespace(node *thrifter.Namespace) {
 		}
 		g.protoContent.WriteString(fmt.Sprintf("package %s;", namespace))
 		g.packageDeclare = node.Value
+	}
+
+	if g.conf.baseProtoFile != "" {
+		g.protoContent.WriteString(fmt.Sprintf("\nimport \"%s\";\n", g.conf.baseProtoFile))
 	}
 	return
 }
@@ -514,6 +520,15 @@ func (g *protoGenerator) writeFunctionArgs(args []*thrifter.Field) {
 			fieldType, _ := g.typeConverter(typeNameOrIdent)
 
 			g.writeIndent()
+			if fieldType == "" && g.conf.baseProtoFile != "" {
+				// list<map> 从 base 中定义
+				if ele.FieldType.List.Elem.Type == thrifter.FIELD_TYPE_MAP {
+					keyType := ele.FieldType.List.Elem.Map.Key.BaseType
+					valueType := ele.FieldType.List.Elem.Map.Key.BaseType
+
+					fieldType = g.conf.baseProtoNs + "." + "Map" + utils.CaseConvert("upperFirstChar", keyType) + "To" + utils.CaseConvert("upperFirstChar", valueType)
+				}
+			}
 			g.protoContent.WriteString(fmt.Sprintf("repeated %s %s = %d;", fieldType, name, ele.ID))
 
 		case thrifter.FIELD_TYPE_MAP:

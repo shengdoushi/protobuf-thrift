@@ -250,6 +250,8 @@ func (g *generator) initSubGenerator(fileInfos []FileInfo) (err error) {
 				expSwitches:        g.conf.ExpSwitches,
 				fixNamespace:       g.conf.FixNamespace,
 				forceFieldOptional: g.conf.ForceFieldOptional,
+				baseProtoFile:      g.conf.BaseProtoFile,
+				baseProtoNs:        g.conf.BaseProtoNs,
 			}
 			generator, err = NewProtoGenerator(conf)
 			if err != nil {
@@ -301,6 +303,8 @@ func (g *generator) initSubGeneratorForRawContent() (err error) {
 			expSwitches:        g.conf.ExpSwitches,
 			fixNamespace:       g.conf.FixNamespace,
 			forceFieldOptional: g.conf.ForceFieldOptional,
+			baseProtoFile:      g.conf.BaseProtoFile,
+			baseProtoNs:        g.conf.BaseProtoNs,
 		}
 		generator, err = NewProtoGenerator(conf)
 		if err != nil {

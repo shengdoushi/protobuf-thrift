@@ -40,10 +40,12 @@ type RunnerConfig struct {
 	// pb config
 	Syntax             int // 2 or 3
 	ForceFieldOptional bool
+	BaseProtoFile      string
+	BaseProtoNs        string
 }
 
 func NewRunner() (res *Runner, err error) {
-	var rawContent, inputPath, outputDir, taskType, useSpaceIndent, indentSpace, expSwitch, fixNamespace string
+	var rawContent, inputPath, outputDir, taskType, useSpaceIndent, indentSpace, expSwitch, fixNamespace, baseProtoFile, baseProtoNs string
 	var nameCase, fieldCase string
 	var syntaxStr, recursiveStr string
 	var forceFieldOptional bool
@@ -61,6 +63,8 @@ func NewRunner() (res *Runner, err error) {
 	flag.StringVar(&expSwitch, "exp-switch", "", "experimental switch, available options: gformat")
 	flag.StringVar(&fixNamespace, "fix-namespace", "", "fix namespace")
 	flag.BoolVar(&forceFieldOptional, "force-field-optional", false, "force field optional")
+	flag.StringVar(&baseProtoFile, "base-proto", "", "base proto file")
+	flag.StringVar(&baseProtoNs, "base-proto-ns", "", "base proto namespace")
 
 	flag.Parse() // after declaring flags we need to call it
 
@@ -121,6 +125,8 @@ func NewRunner() (res *Runner, err error) {
 		ExpSwitches:        strings.Split(expSwitch, ","),
 		FixNamespace:       fixNamespace,
 		ForceFieldOptional: forceFieldOptional,
+		BaseProtoFile:      baseProtoFile,
+		BaseProtoNs:        baseProtoNs,
 	}
 	res = &Runner{
 		Config: config,

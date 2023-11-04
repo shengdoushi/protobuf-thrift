@@ -9,6 +9,7 @@
 5. 新增一个 fix-namespace 参数， 在生成的 proto 文件中强制更改包名
 6. 新增一个 force-field-optional 布尔参数， 开启即强制将字段设置为 optional
 7. enum 的字段在生成时，其名添加 enum 名前缀， 如 enum A {b = 1}, b 生成的名字为  A_b
+8. 新增一个 base.proto 引入设置参数: -base-proto=base.proto -base-proto-ns=com.package.base 来支持一些 MapStringToString 等消息
 
 
 安装:
