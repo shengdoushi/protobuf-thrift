@@ -5,7 +5,7 @@
 1. thrift=>proto 文件时， 支持 thrift 文件中 enum 不显示设置对应数值, 按 thrift 默认规则从0开始
 2. 命令行参数 name-case 与 field-case 添加一个 keep 取值， 意即不对名字做转换
 3. exe/main.go 移动到 cmd/protobuf-thrift/main.go 中, 方便 go install 
-4. 新增一个命令行参数 exp-switch, 取值 gformat 时， 会自动对生成的 proto 中的 rpc 方法参数和返回值， 进行 *Request, *Response 包装
+4. 新增一个命令行参数 exp-switch （逗号分隔）, 取值 gformat 时， 会自动对生成的 proto 中的 rpc 方法参数和返回值， 进行 *Request, *Response 包装; i16ToInt32 为 转 i16 成 int32 
 5. 新增一个 fix-namespace 参数， 在生成的 proto 文件中强制更改包名
 6. 新增一个 force-field-optional 布尔参数， 开启即强制将字段设置为 optional
 7. enum 的字段在生成时，其名添加 enum 名前缀， 如 enum A {b = 1}, b 生成的名字为  A_b

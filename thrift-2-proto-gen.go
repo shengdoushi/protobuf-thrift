@@ -490,6 +490,10 @@ func (g *protoGenerator) basicTypeConverter(t string) (res string, err error) {
 	// case "byte":
 	// 	res = "bytes"
 	default:
+		if g.conf.HasSwitch("i16ToInt32") && t == "i16" {
+			res = "int32"
+			return
+		}
 		err = fmt.Errorf("Invalid basic type %s", t)
 	}
 	return
