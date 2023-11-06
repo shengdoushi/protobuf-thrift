@@ -252,6 +252,7 @@ func (g *generator) initSubGenerator(fileInfos []FileInfo) (err error) {
 				forceFieldOptional: g.conf.ForceFieldOptional,
 				baseProtoFile:      g.conf.BaseProtoFile,
 				baseProtoNs:        g.conf.BaseProtoNs,
+				phpBridgeNs:        g.conf.PhpBridgeNs,
 			}
 			generator, err = NewProtoGenerator(conf)
 			if err != nil {
@@ -305,6 +306,7 @@ func (g *generator) initSubGeneratorForRawContent() (err error) {
 			forceFieldOptional: g.conf.ForceFieldOptional,
 			baseProtoFile:      g.conf.BaseProtoFile,
 			baseProtoNs:        g.conf.BaseProtoNs,
+			phpBridgeNs:        g.conf.PhpBridgeNs,
 		}
 		generator, err = NewProtoGenerator(conf)
 		if err != nil {

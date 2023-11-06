@@ -15,13 +15,15 @@ import (
 )
 
 type protoGenerator struct {
-	conf           *ProtoGeneratorConfig
-	def            *thrifter.Thrift
-	file           *os.File
-	protoContent   bytes.Buffer
-	currentToken   *thrifter.Token
-	packageDeclare string // used to detect whether has duplicate package
-	thriftRpcFuncs []*thrifter.Function
+	conf                *ProtoGeneratorConfig
+	def                 *thrifter.Thrift
+	file                *os.File
+	protoContent        bytes.Buffer
+	thriftBridgeContent bytes.Buffer
+	currentToken        *thrifter.Token
+	packageDeclare      string // used to detect whether has duplicate package
+	thriftRpcFuncs      []*thrifter.Function
+	thriftServiceNames  []string
 }
 
 type ProtoGeneratorConfig struct {
@@ -43,8 +45,16 @@ type ProtoGeneratorConfig struct {
 	forceFieldOptional bool
 	baseProtoFile      string
 	baseProtoNs        string
+	phpBridgeNs        string
 }
 
+func (c ProtoGeneratorConfig) getMixGenPhpNs() string {
+	items := make([]string, 0)
+	for _, v := range strings.Split(c.fixNamespace, ".") {
+		items = append(items, utils.CaseConvert("upperFirstChar", v))
+	}
+	return "\\" + strings.Join(items, "\\")
+}
 func (c ProtoGeneratorConfig) HasSwitch(name string) bool {
 	for _, s := range c.expSwitches {
 		if s == name {
@@ -251,6 +261,9 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 
 		case thrifter.T_LINEBREAK, thrifter.T_RETURN:
 			g.protoContent.WriteString(g.currentToken.Raw)
+			if g.conf.phpBridgeNs != "" {
+				g.thriftBridgeContent.WriteString(g.currentToken.Raw)
+			}
 			g.currentToken = g.currentToken.Next
 
 		case thrifter.T_SERVICE:
@@ -258,6 +271,11 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 			// consume { token
 			g.currentToken = g.currentToken.Next
 			g.protoContent.WriteString(fmt.Sprintf("service %s {", utils.CaseConvert(g.conf.nameCase, s.Ident)))
+			if g.conf.phpBridgeNs != "" {
+				g.thriftBridgeContent.WriteString(fmt.Sprintf("trait %sBridge {", utils.CaseConvert(g.conf.nameCase, s.Ident)))
+				g.thriftBridgeContent.WriteString(fmt.Sprintf("\n\tabstract protected function getThriftServiceImpl() : \\%s\\%sIf;\n", strings.ReplaceAll(g.packageDeclare, ".", "\\"), s.Ident))
+			}
+			g.thriftServiceNames = append(g.thriftServiceNames, s.Ident)
 
 		default:
 			hash := thrifter.GenTokenHash(g.currentToken)
@@ -292,6 +310,75 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 			}
 			g.protoContent.WriteString(fmt.Sprintf("rpc %s(%s) returns (%s) {}", name, reqName, resName))
 
+			if g.conf.phpBridgeNs != "" {
+				g.thriftBridgeContent.WriteString(fmt.Sprintf("\n\tpublic function %s(\\Mix\\Grpc\\Context $context, %s $request) : %s\n", name, reqName, resName))
+				g.thriftBridgeContent.WriteString("\t{\n")
+				var bridgeFuncArgs []string
+				for _, arg := range function.Args {
+					if arg.FieldType.Type == thrifter.FIELD_TYPE_BASE {
+						bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("$request->get%s()", utils.CaseConvert("upperFirstChar", arg.Ident)))
+					} else if arg.FieldType.Type == thrifter.FIELD_TYPE_IDENT {
+						bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("new \\%s\\%s($request->get%s())", strings.ReplaceAll(g.packageDeclare, ".", "\\"), utils.CaseConvert(g.conf.nameCase, arg.FieldType.Ident), utils.CaseConvert("upperFirstChar", arg.Ident)))
+					} else if arg.FieldType.Type == thrifter.FIELD_TYPE_LIST {
+						if arg.FieldType.List.Elem.Type == thrifter.FIELD_TYPE_BASE {
+							bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("iterator_to_array($request->get%s())", utils.CaseConvert("upperFirstChar", arg.Ident)))
+						} else if arg.FieldType.List.Elem.Type == thrifter.FIELD_TYPE_IDENT {
+							bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("array_map(fn ($item) => new \\%s\\%s($item), iterator_to_array($request->get%s()))", strings.ReplaceAll(g.packageDeclare, ".", "\\"), utils.CaseConvert(g.conf.nameCase, arg.FieldType.List.Elem.Ident), utils.CaseConvert("upperFirstChar", arg.Ident)))
+						} else {
+							panic(fmt.Sprintf("不支持的 bridge list<value> %d 参数类型， 请升级工具", arg.FieldType.List.Elem.Type))
+						}
+					} else if arg.FieldType.Type == thrifter.FIELD_TYPE_MAP {
+						if arg.FieldType.Map.Key.Type == thrifter.FIELD_TYPE_BASE && arg.FieldType.Map.Value.Type == thrifter.FIELD_TYPE_BASE {
+							bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("iterator_to_array($request->get%s())", utils.CaseConvert("upperFirstChar", arg.Ident)))
+						} else {
+							panic(fmt.Sprintf("不支持的 bridge map<key, value> 参数类型， 请升级工具"))
+						}
+					} else {
+						panic(fmt.Sprintf("不支持的 bridge %d 参数类型， 请升级工具", arg.FieldType.Type))
+					}
+				}
+				g.thriftBridgeContent.WriteString(fmt.Sprintf("\t\t$result = $this->getThriftServiceImpl()->%s(%s);\n", name, strings.Join(bridgeFuncArgs, ", ")))
+				if function.Void || function.FunctionType == nil {
+					g.thriftBridgeContent.WriteString(fmt.Sprintf("\t\treturn (new %s());\n", resName))
+				} else {
+					bridgeReturnValue := "TODO"
+					if function.FunctionType.Type == thrifter.FIELD_TYPE_BASE {
+						bridgeReturnValue = "$result"
+					} else if function.FunctionType.Type == thrifter.FIELD_TYPE_IDENT {
+						bridgeReturnValue = fmt.Sprintf("new %s\\%s(array_filter((array)$result, fn ($item) => !is_null($item)))", g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, function.FunctionType.Ident))
+					} else if function.FunctionType.Type == thrifter.FIELD_TYPE_LIST {
+						if function.FunctionType.List.Elem.Type == thrifter.FIELD_TYPE_BASE {
+							bridgeReturnValue = fmt.Sprintf("$result")
+						} else if function.FunctionType.List.Elem.Type == thrifter.FIELD_TYPE_IDENT {
+							bridgeReturnValue = fmt.Sprintf("array_map(fn ($item) => new %s\\%s(array_filter((array)$item, fn ($item) => !is_null($item))), $result)", g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, function.FunctionType.List.Elem.Ident))
+						} else if function.FunctionType.List.Elem.Type == thrifter.FIELD_TYPE_MAP {
+							if function.FunctionType.List.Elem.Map.Key.Type == thrifter.FIELD_TYPE_BASE && function.FunctionType.List.Elem.Map.Value.Type == thrifter.FIELD_TYPE_BASE {
+								items := strings.Split(g.conf.baseProtoNs, ".")
+								for idx := range items {
+									items[idx] = utils.CaseConvert("upperFirstChar", items[idx])
+								}
+								selfMapMsgType := strings.Join(items, "\\") + "\\" + "Map" + utils.CaseConvert("upperFirstChar", function.FunctionType.List.Elem.Map.Key.BaseType) + "To" + utils.CaseConvert("upperFirstChar", function.FunctionType.List.Elem.Map.Key.BaseType)
+								bridgeReturnValue = fmt.Sprintf("array_map(fn ($item) => new %s($item), $result)", selfMapMsgType)
+							} else {
+								panic(fmt.Sprintf("不支持的 bridge list<map<key, value>> %d, %d 返回类型， 请升级工具", function.FunctionType.List.Elem.Map.Key.Type, function.FunctionType.List.Elem.Map.Value.Type))
+							}
+						} else {
+							panic(fmt.Sprintf("不支持的 bridge list<value> %d 返回类型， 请升级工具", function.FunctionType.List.Elem.Type))
+						}
+					} else if function.FunctionType.Type == thrifter.FIELD_TYPE_MAP {
+						if function.FunctionType.Map.Key.Type == thrifter.FIELD_TYPE_BASE && function.FunctionType.Map.Value.Type == thrifter.FIELD_TYPE_BASE {
+							bridgeReturnValue = fmt.Sprintf("$result")
+						} else {
+							panic(fmt.Sprintf("不支持的 bridge map<key, value> 返回类型， 请升级工具"))
+						}
+					} else {
+						panic(fmt.Sprintf("不支持的 bridge %d 返回类型， 请升级工具", function.FunctionType.Type))
+					}
+					g.thriftBridgeContent.WriteString(fmt.Sprintf("\t\treturn (new %s\\%s())->setValue(%s);\n", g.conf.getMixGenPhpNs(), resName, bridgeReturnValue))
+				}
+				g.thriftBridgeContent.WriteString("\t}")
+			}
+
 			g.thriftRpcFuncs = append(g.thriftRpcFuncs, function)
 			// move to end token of the function node
 			g.currentToken = function.EndToken
@@ -299,6 +386,9 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 	}
 
 	g.protoContent.WriteString("}\n")
+	if g.conf.phpBridgeNs != "" {
+		g.thriftBridgeContent.WriteString("}\n")
+	}
 	g.currentToken = s.EndToken
 
 	return
@@ -617,6 +707,31 @@ func (g *protoGenerator) Sink() (err error) {
 		}
 		defer file.Close()
 		_, err = file.WriteString(g.protoContent.String())
+
+		if g.conf.phpBridgeNs != "" && len(g.thriftServiceNames) > 0 {
+			outputPath = g.conf.outputDir
+			for _, v := range strings.Split(strings.TrimLeft(g.conf.phpBridgeNs, "\\"), "\\")[1:] {
+				outputPath = filepath.Join(outputPath, v)
+			}
+			os.MkdirAll(outputPath, os.ModePerm)
+			outputPath = filepath.Join(outputPath, utils.CaseConvert(g.conf.nameCase, g.thriftServiceNames[0])+"Bridge.php")
+			file, err = os.Create(outputPath)
+			if err != nil {
+				logger.Errorf("os.Create file %v error %v", outputPath, err)
+				return err
+			}
+			defer file.Close()
+			file.WriteString("<?php\n\n")
+			file.WriteString(fmt.Sprintf("namespace %s;\n", g.conf.phpBridgeNs))
+			file.WriteString("/**\n * Autogenerated by Protobuf-Thrift Tool\n *\n * DO NOT EDIT UNLESS YOU ARE SURE THAT YOU KNOW WHAT YOU ARE DOING\n *  @generated\n */\n\n")
+			for _, rpcFun := range g.thriftRpcFuncs {
+				reqName := utils.CaseConvert("upperFirstChar", utils.CaseConvert(g.conf.nameCase, rpcFun.Ident)+"Request")
+				resName := utils.CaseConvert("upperFirstChar", utils.CaseConvert(g.conf.nameCase, rpcFun.Ident)+"Response")
+				file.WriteString(fmt.Sprintf("use %s\\%s;\n", g.conf.getMixGenPhpNs(), reqName))
+				file.WriteString(fmt.Sprintf("use %s\\%s;\n", g.conf.getMixGenPhpNs(), resName))
+			}
+			_, err = file.WriteString(g.thriftBridgeContent.String())
+		}
 	} else {
 		f := bufio.NewWriter(os.Stdout)
 		defer f.Flush()

@@ -42,10 +42,11 @@ type RunnerConfig struct {
 	ForceFieldOptional bool
 	BaseProtoFile      string
 	BaseProtoNs        string
+	PhpBridgeNs        string
 }
 
 func NewRunner() (res *Runner, err error) {
-	var rawContent, inputPath, outputDir, taskType, useSpaceIndent, indentSpace, expSwitch, fixNamespace, baseProtoFile, baseProtoNs string
+	var rawContent, inputPath, outputDir, taskType, useSpaceIndent, indentSpace, expSwitch, fixNamespace, baseProtoFile, baseProtoNs, phpBridgeNs string
 	var nameCase, fieldCase string
 	var syntaxStr, recursiveStr string
 	var forceFieldOptional bool
@@ -65,6 +66,7 @@ func NewRunner() (res *Runner, err error) {
 	flag.BoolVar(&forceFieldOptional, "force-field-optional", false, "force field optional")
 	flag.StringVar(&baseProtoFile, "base-proto", "", "base proto file")
 	flag.StringVar(&baseProtoNs, "base-proto-ns", "", "base proto namespace")
+	flag.StringVar(&phpBridgeNs, "php-bridge-ns", "", "if set, will generate php bridge file")
 
 	flag.Parse() // after declaring flags we need to call it
 
@@ -127,6 +129,7 @@ func NewRunner() (res *Runner, err error) {
 		ForceFieldOptional: forceFieldOptional,
 		BaseProtoFile:      baseProtoFile,
 		BaseProtoNs:        baseProtoNs,
+		PhpBridgeNs:        phpBridgeNs,
 	}
 	res = &Runner{
 		Config: config,
