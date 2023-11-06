@@ -24,6 +24,7 @@ type protoGenerator struct {
 	packageDeclare      string // used to detect whether has duplicate package
 	thriftRpcFuncs      []*thrifter.Function
 	thriftServiceNames  []string
+	thriftEnumNames     []string
 }
 
 type ProtoGeneratorConfig struct {
@@ -58,6 +59,15 @@ func (c ProtoGeneratorConfig) getMixGenPhpNs() string {
 func (c ProtoGeneratorConfig) HasSwitch(name string) bool {
 	for _, s := range c.expSwitches {
 		if s == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *protoGenerator) checkIdentIsEnum(ident string) bool {
+	for _, s := range g.thriftEnumNames {
+		if s == ident {
 			return true
 		}
 	}
@@ -318,12 +328,20 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 					if arg.FieldType.Type == thrifter.FIELD_TYPE_BASE {
 						bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("$request->get%s()", utils.CaseConvert("upperFirstChar", arg.Ident)))
 					} else if arg.FieldType.Type == thrifter.FIELD_TYPE_IDENT {
-						bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("new \\%s\\%s($request->get%s())", strings.ReplaceAll(g.packageDeclare, ".", "\\"), utils.CaseConvert(g.conf.nameCase, arg.FieldType.Ident), utils.CaseConvert("upperFirstChar", arg.Ident)))
+						if g.checkIdentIsEnum(arg.FieldType.Ident) {
+							bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("$request->get%s()", utils.CaseConvert("upperFirstChar", arg.Ident)))
+						} else {
+							bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("new \\%s\\%s($request->get%s())", strings.ReplaceAll(g.packageDeclare, ".", "\\"), utils.CaseConvert(g.conf.nameCase, arg.FieldType.Ident), utils.CaseConvert("upperFirstChar", arg.Ident)))
+						}
 					} else if arg.FieldType.Type == thrifter.FIELD_TYPE_LIST {
 						if arg.FieldType.List.Elem.Type == thrifter.FIELD_TYPE_BASE {
 							bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("iterator_to_array($request->get%s())", utils.CaseConvert("upperFirstChar", arg.Ident)))
 						} else if arg.FieldType.List.Elem.Type == thrifter.FIELD_TYPE_IDENT {
-							bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("array_map(fn ($item) => new \\%s\\%s($item), iterator_to_array($request->get%s()))", strings.ReplaceAll(g.packageDeclare, ".", "\\"), utils.CaseConvert(g.conf.nameCase, arg.FieldType.List.Elem.Ident), utils.CaseConvert("upperFirstChar", arg.Ident)))
+							if g.checkIdentIsEnum(arg.FieldType.List.Elem.Ident) {
+								bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("iterator_to_array($request->get%s())", utils.CaseConvert("upperFirstChar", arg.Ident)))
+							} else {
+								bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("array_map(fn ($item) => new \\%s\\%s($item), iterator_to_array($request->get%s()))", strings.ReplaceAll(g.packageDeclare, ".", "\\"), utils.CaseConvert(g.conf.nameCase, arg.FieldType.List.Elem.Ident), utils.CaseConvert("upperFirstChar", arg.Ident)))
+							}
 						} else {
 							panic(fmt.Sprintf("不支持的 bridge list<value> %d 参数类型， 请升级工具", arg.FieldType.List.Elem.Type))
 						}
@@ -345,12 +363,20 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 					if function.FunctionType.Type == thrifter.FIELD_TYPE_BASE {
 						bridgeReturnValue = "$result"
 					} else if function.FunctionType.Type == thrifter.FIELD_TYPE_IDENT {
-						bridgeReturnValue = fmt.Sprintf("new %s\\%s(array_filter((array)$result, fn ($item) => !is_null($item)))", g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, function.FunctionType.Ident))
+						if g.checkIdentIsEnum(function.FunctionType.Ident) {
+							bridgeReturnValue = "$result"
+						} else {
+							bridgeReturnValue = fmt.Sprintf("new %s\\%s(array_filter((array)$result, fn ($item) => !is_null($item)))", g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, function.FunctionType.Ident))
+						}
 					} else if function.FunctionType.Type == thrifter.FIELD_TYPE_LIST {
 						if function.FunctionType.List.Elem.Type == thrifter.FIELD_TYPE_BASE {
 							bridgeReturnValue = fmt.Sprintf("$result")
 						} else if function.FunctionType.List.Elem.Type == thrifter.FIELD_TYPE_IDENT {
-							bridgeReturnValue = fmt.Sprintf("array_map(fn ($item) => new %s\\%s(array_filter((array)$item, fn ($item) => !is_null($item))), $result)", g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, function.FunctionType.List.Elem.Ident))
+							if g.checkIdentIsEnum(function.FunctionType.List.Elem.Ident) {
+								bridgeReturnValue = fmt.Sprintf("$result")
+							} else {
+								bridgeReturnValue = fmt.Sprintf("array_map(fn ($item) => new %s\\%s(array_filter((array)$item, fn ($item) => !is_null($item))), $result)", g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, function.FunctionType.List.Elem.Ident))
+							}
 						} else if function.FunctionType.List.Elem.Type == thrifter.FIELD_TYPE_MAP {
 							if function.FunctionType.List.Elem.Map.Key.Type == thrifter.FIELD_TYPE_BASE && function.FunctionType.List.Elem.Map.Value.Type == thrifter.FIELD_TYPE_BASE {
 								items := strings.Split(g.conf.baseProtoNs, ".")
@@ -424,6 +450,7 @@ func (g *protoGenerator) handleEnum(e *thrifter.Enum) {
 			// consume { token
 			g.currentToken = g.currentToken.Next
 			g.protoContent.WriteString(fmt.Sprintf("enum %s {", utils.CaseConvert(g.conf.nameCase, e.Ident)))
+			g.thriftEnumNames = append(g.thriftEnumNames, e.Ident)
 
 		default:
 			hash := thrifter.GenTokenHash(g.currentToken)
