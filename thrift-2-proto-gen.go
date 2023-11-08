@@ -461,13 +461,6 @@ func (g *protoGenerator) handleEnum(e *thrifter.Enum) {
 				continue
 			}
 
-			// if g.currentToken is identical with ele.EndToken, means that the grammar is wrong
-			if g.currentToken == ele.EndToken {
-				logger.Errorf(fmt.Sprintf("invalid token for enum %s element %s, pass", e.Ident, g.currentToken.Raw))
-				g.currentToken = g.currentToken.Next
-				continue
-			}
-
 			if !hasTraverseFirstElement {
 				hasTraverseFirstElement = true
 				// proto 3 enum first element must be zero, add a default element to it
@@ -486,6 +479,10 @@ func (g *protoGenerator) handleEnum(e *thrifter.Enum) {
 			}
 			g.protoContent.WriteString(fmt.Sprintf("%s_%s = %d;", e.Ident, name, lastEnumValue))
 
+			if g.currentToken == ele.EndToken {
+				g.currentToken = g.currentToken.Next
+				continue
+			}
 			// move to end token of the enum element node
 			g.currentToken = ele.EndToken
 		}
