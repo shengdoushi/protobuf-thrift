@@ -225,11 +225,11 @@ func (g *protoGenerator) handleNamespace(node *thrifter.Namespace) {
 		}
 		g.protoContent.WriteString(fmt.Sprintf("package %s;", namespace))
 		g.packageDeclare = node.Value
+		if g.conf.baseProtoFile != "" {
+			g.protoContent.WriteString(fmt.Sprintf("\nimport \"%s\";\n", g.conf.baseProtoFile))
+		}
 	}
 
-	if g.conf.baseProtoFile != "" {
-		g.protoContent.WriteString(fmt.Sprintf("\nimport \"%s\";\n", g.conf.baseProtoFile))
-	}
 	return
 }
 
