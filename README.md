@@ -11,6 +11,7 @@
 7. enum 的字段在生成时，其名添加 enum 名前缀， 如 enum A {b = 1}, b 生成的名字为  A_b
 8. 新增一个 base.proto 引入设置参数: -base-proto=base.proto -base-proto-ns=com.package.base 来支持一些 MapStringToString 等消息
 9. 新增一个 php-bridge-ns 参数， 在指定时会生成一个 thrift 到 grpc 的桥接代码文件
+10. 新增一个 enum-field-as-int 参数， 将enum 转为int32
 
 
 安装:
