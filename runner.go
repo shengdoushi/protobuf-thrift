@@ -43,13 +43,14 @@ type RunnerConfig struct {
 	BaseProtoFile      string
 	BaseProtoNs        string
 	PhpBridgeNs        string
+	EnumFieldAsInt     bool
 }
 
 func NewRunner() (res *Runner, err error) {
 	var rawContent, inputPath, outputDir, taskType, useSpaceIndent, indentSpace, expSwitch, fixNamespace, baseProtoFile, baseProtoNs, phpBridgeNs string
 	var nameCase, fieldCase string
 	var syntaxStr, recursiveStr string
-	var forceFieldOptional bool
+	var forceFieldOptional, enumFieldAsInt bool
 
 	// flags declaration using flag package
 	flag.StringVar(&taskType, "t", "", "proto => thrift or thrift => proto, valid values proto2thrift and thrift2proto")
@@ -67,6 +68,7 @@ func NewRunner() (res *Runner, err error) {
 	flag.StringVar(&baseProtoFile, "base-proto", "", "base proto file")
 	flag.StringVar(&baseProtoNs, "base-proto-ns", "", "base proto namespace")
 	flag.StringVar(&phpBridgeNs, "php-bridge-ns", "", "if set, will generate php bridge file")
+	flag.BoolVar(&enumFieldAsInt, "enum-field-as-int", false, "if set, enum will generate as int")
 
 	flag.Parse() // after declaring flags we need to call it
 
@@ -130,6 +132,7 @@ func NewRunner() (res *Runner, err error) {
 		BaseProtoFile:      baseProtoFile,
 		BaseProtoNs:        baseProtoNs,
 		PhpBridgeNs:        phpBridgeNs,
+		EnumFieldAsInt:     enumFieldAsInt,
 	}
 	res = &Runner{
 		Config: config,

@@ -47,6 +47,7 @@ type ProtoGeneratorConfig struct {
 	baseProtoFile      string
 	baseProtoNs        string
 	phpBridgeNs        string
+	enumFieldAsInt     bool
 }
 
 func (c ProtoGeneratorConfig) getMixGenPhpNs() string {
@@ -563,7 +564,11 @@ func (g *protoGenerator) handleStruct(s *thrifter.Struct) {
 				if ele.FieldType.Type == thrifter.FIELD_TYPE_BASE {
 					typeNameOrIdent = ele.FieldType.BaseType
 				} else {
-					typeNameOrIdent = ele.FieldType.Ident
+					if g.checkIdentIsEnum(ele.FieldType.Ident) && g.conf.enumFieldAsInt {
+						typeNameOrIdent = "i32"
+					} else {
+						typeNameOrIdent = ele.FieldType.Ident
+					}
 				}
 				fieldType, _ := g.typeConverter(typeNameOrIdent)
 
