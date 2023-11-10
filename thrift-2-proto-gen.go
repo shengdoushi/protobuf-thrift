@@ -341,7 +341,7 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 							if g.checkIdentIsEnum(arg.FieldType.List.Elem.Ident) {
 								bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("iterator_to_array($request->get%s())", utils.CaseConvert("upperFirstChar", arg.Ident)))
 							} else {
-								bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("array_map(fn ($item) => \\com\\common\\GrpcToolkit::messageToThrift($item, \\%s\\%s::class)), iterator_to_array($request->get%s()))", strings.ReplaceAll(g.packageDeclare, ".", "\\"), utils.CaseConvert(g.conf.nameCase, arg.FieldType.List.Elem.Ident), utils.CaseConvert("upperFirstChar", arg.Ident)))
+								bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("array_map(fn ($item) => \\com\\common\\GrpcToolkit::messageToThrift($item, \\%s\\%s::class), iterator_to_array($request->get%s()))", strings.ReplaceAll(g.packageDeclare, ".", "\\"), utils.CaseConvert(g.conf.nameCase, arg.FieldType.List.Elem.Ident), utils.CaseConvert("upperFirstChar", arg.Ident)))
 							}
 						} else {
 							panic(fmt.Sprintf("不支持的 bridge list<value> %d 参数类型， 请升级工具", arg.FieldType.List.Elem.Type))
