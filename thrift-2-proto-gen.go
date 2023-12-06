@@ -350,7 +350,7 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 							g.grpcBridgeContent.WriteString(fmt.Sprintf("\t\tif (!is_null($%s)) $grpcRequest->set%s($%s);\n", arg.Ident, utils.CaseConvert("upperFirstChar", arg.Ident), arg.Ident))
 						} else {
 							bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("\\com\\common\\GrpcToolkit::messageToThrift($request->get%s(), \\%s\\%s::class)", utils.CaseConvert("upperFirstChar", arg.Ident), strings.ReplaceAll(g.packageDeclare, ".", "\\"), utils.CaseConvert(g.conf.nameCase, arg.FieldType.Ident)))
-							g.grpcBridgeContent.WriteString(fmt.Sprintf("\t\tif (!is_null($%s)) $grpcRequest->set%s(new %s\\%s(array_filter((array)$%s, fn ($item) => !is_null($item))));\n", arg.Ident, utils.CaseConvert("upperFirstChar", arg.Ident), g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, function.FunctionType.Ident), arg.Ident))
+							g.grpcBridgeContent.WriteString(fmt.Sprintf("\t\tif (!is_null($%s)) $grpcRequest->set%s(new %s\\%s(array_filter((array)$%s, fn ($item) => !is_null($item))));\n", arg.Ident, utils.CaseConvert("upperFirstChar", arg.Ident), g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, arg.FieldType.Ident), arg.Ident))
 						}
 					} else if arg.FieldType.Type == thrifter.FIELD_TYPE_LIST {
 						if arg.FieldType.List.Elem.Type == thrifter.FIELD_TYPE_BASE {
