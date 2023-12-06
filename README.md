@@ -13,6 +13,8 @@
 9. 新增一个 php-bridge-ns 参数， 在指定时会生成一个 thrift 到 grpc 的桥接代码文件
 10. 新增一个 enum-field-as-int 参数， 将enum 转为int32
 
+注：
+对于 thrift 中返回的 list<map<string, string>> 这种在 list 中的 map 单独一个新建 proto 类型对象 Map: MapStringToString
 
 安装:
 

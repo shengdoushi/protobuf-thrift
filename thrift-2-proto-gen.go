@@ -380,10 +380,11 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 				}
 				g.thriftBridgeContent.WriteString(fmt.Sprintf("\t\t$result = $this->getThriftServiceImpl()->%s(%s);\n", name, strings.Join(bridgeFuncArgs, ", ")))
 				g.grpcBridgeContent.WriteString(fmt.Sprintf("\t\t$grpcResponse = $this->getGrpcServiceClientImpl()->%s($this->getGrpcContext(), $grpcRequest);\n", name))
-				g.grpcBridgeContent.WriteString("\t\tif (is_null($grpcResponse->getValue())) return null;\n")
 				if function.Void || function.FunctionType == nil {
 					g.thriftBridgeContent.WriteString(fmt.Sprintf("\t\treturn (new %s());\n", resName))
 				} else {
+					g.thriftBridgeContent.WriteString(fmt.Sprintf("\t\tif (is_null($result)) return new %s\\%s();\n", g.conf.getMixGenPhpNs(), resName))
+					g.grpcBridgeContent.WriteString("\t\tif (is_null($grpcResponse->getValue())) return null;\n")
 					bridgeReturnValue := "TODO"
 					grpcBridgeReturnValue := "TODO"
 					if function.FunctionType.Type == thrifter.FIELD_TYPE_BASE {
@@ -415,8 +416,9 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 								for idx := range items {
 									items[idx] = utils.CaseConvert("upperFirstChar", items[idx])
 								}
-								selfMapMsgType := strings.Join(items, "\\") + "\\" + "Map" + utils.CaseConvert("upperFirstChar", function.FunctionType.List.Elem.Map.Key.BaseType) + "To" + utils.CaseConvert("upperFirstChar", function.FunctionType.List.Elem.Map.Key.BaseType)
-								bridgeReturnValue = fmt.Sprintf("array_map(fn ($item) => new %s($item), $result)", selfMapMsgType)
+								selfMapMsgType := "\\" + strings.Join(items, "\\") + "\\" + "Map" + utils.CaseConvert("upperFirstChar", function.FunctionType.List.Elem.Map.Key.BaseType) + "To" + utils.CaseConvert("upperFirstChar", function.FunctionType.List.Elem.Map.Key.BaseType)
+								bridgeReturnValue = fmt.Sprintf("array_map(fn ($item) => (new %s())->setValue($item), $result)", selfMapMsgType)
+								grpcBridgeReturnValue = fmt.Sprintf("array_map(fn ($item) => iterator_to_array($item->getValue()), iterator_to_array($grpcResponse->getValue()));")
 							} else {
 								panic(fmt.Sprintf("不支持的 bridge list<map<key, value>> %d, %d 返回类型， 请升级工具", function.FunctionType.List.Elem.Map.Key.Type, function.FunctionType.List.Elem.Map.Value.Type))
 							}
@@ -426,7 +428,7 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 					} else if function.FunctionType.Type == thrifter.FIELD_TYPE_MAP {
 						if function.FunctionType.Map.Key.Type == thrifter.FIELD_TYPE_BASE && function.FunctionType.Map.Value.Type == thrifter.FIELD_TYPE_BASE {
 							bridgeReturnValue = fmt.Sprintf("$result")
-							grpcBridgeReturnValue = fmt.Sprintf("iterator_to_array($grpcResponse->getValue()->getValue())")
+							grpcBridgeReturnValue = fmt.Sprintf("iterator_to_array($grpcResponse->getValue())")
 						} else {
 							panic(fmt.Sprintf("不支持的 bridge map<key, value> 返回类型， 请升级工具"))
 						}
