@@ -318,12 +318,8 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 			g.writeIndent()
 
 			if g.conf.HasSwitch("gformat") {
-				if !strings.HasSuffix(resName, "Request") {
-					reqName = utils.CaseConvert("upperFirstChar", name+"Request")
-				}
-				if !strings.HasSuffix(resName, "Response") {
-					resName = utils.CaseConvert("upperFirstChar", name+"Response")
-				}
+				reqName = utils.CaseConvert("upperFirstChar", name+"Request")
+				resName = utils.CaseConvert("upperFirstChar", name+"Response")
 			}
 			g.protoContent.WriteString(fmt.Sprintf("rpc %s(%s) returns (%s) {}", name, reqName, resName))
 
