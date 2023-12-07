@@ -364,6 +364,20 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 								bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("array_map(fn ($item) => \\com\\common\\GrpcToolkit::messageToThrift($item, \\%s\\%s::class), iterator_to_array($request->get%s()))", strings.ReplaceAll(g.packageDeclare, ".", "\\"), utils.CaseConvert(g.conf.nameCase, arg.FieldType.List.Elem.Ident), utils.CaseConvert("upperFirstChar", arg.Ident)))
 								g.grpcBridgeContent.WriteString(fmt.Sprintf("\t\tif (!is_null($%s)) $grpcRequest->set%s(array_map(fn ($item) => new %s\\%s(array_filter((array)$item, fn ($item) => !is_null($item))), $%s));\n", arg.Ident, utils.CaseConvert("upperFirstChar", arg.Ident), g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, arg.FieldType.List.Elem.Ident), arg.Ident))
 							}
+						} else if arg.FieldType.List.Elem.Type == thrifter.FIELD_TYPE_MAP {
+							if arg.FieldType.List.Elem.Map.Key.Type == thrifter.FIELD_TYPE_BASE && arg.FieldType.List.Elem.Map.Value.Type == thrifter.FIELD_TYPE_BASE {
+
+								items := strings.Split(g.conf.baseProtoNs, ".")
+								for idx := range items {
+									items[idx] = utils.CaseConvert("upperFirstChar", items[idx])
+								}
+								selfMapMsgType := "\\" + strings.Join(items, "\\") + "\\" + "Map" + utils.CaseConvert("upperFirstChar", arg.FieldType.List.Elem.Map.Key.BaseType) + "To" + utils.CaseConvert("upperFirstChar", arg.FieldType.List.Elem.Map.Value.BaseType)
+
+								bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("array_map(fn ($item) => iterator_to_array($item->getValue()), iterator_to_array($request->get%s()))", utils.CaseConvert("upperFirstChar", arg.Ident)))
+								g.grpcBridgeContent.WriteString(fmt.Sprintf("\t\tif (!is_null($%s)) $grpcRequest->set%s(array_map(fn ($item) => (new %s)->setValue($item), $%s));\n", arg.Ident, utils.CaseConvert("upperFirstChar", arg.Ident), selfMapMsgType, arg.Ident))
+							} else {
+								panic(fmt.Sprintf("不支持的 bridge list<map<>> %d 参数类型， 请升级工具", arg.FieldType.List.Elem.Type))
+							}
 						} else {
 							panic(fmt.Sprintf("不支持的 bridge list<value> %d 参数类型， 请升级工具", arg.FieldType.List.Elem.Type))
 						}
@@ -416,9 +430,9 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 								for idx := range items {
 									items[idx] = utils.CaseConvert("upperFirstChar", items[idx])
 								}
-								selfMapMsgType := "\\" + strings.Join(items, "\\") + "\\" + "Map" + utils.CaseConvert("upperFirstChar", function.FunctionType.List.Elem.Map.Key.BaseType) + "To" + utils.CaseConvert("upperFirstChar", function.FunctionType.List.Elem.Map.Key.BaseType)
+								selfMapMsgType := "\\" + strings.Join(items, "\\") + "\\" + "Map" + utils.CaseConvert("upperFirstChar", function.FunctionType.List.Elem.Map.Key.BaseType) + "To" + utils.CaseConvert("upperFirstChar", function.FunctionType.List.Elem.Map.Value.BaseType)
 								bridgeReturnValue = fmt.Sprintf("array_map(fn ($item) => (new %s())->setValue($item), $result)", selfMapMsgType)
-								grpcBridgeReturnValue = fmt.Sprintf("array_map(fn ($item) => iterator_to_array($item->getValue()), iterator_to_array($grpcResponse->getValue()));")
+								grpcBridgeReturnValue = fmt.Sprintf("array_map(fn ($item) => iterator_to_array($item->getValue()), iterator_to_array($grpcResponse->getValue()))")
 							} else {
 								panic(fmt.Sprintf("不支持的 bridge list<map<key, value>> %d, %d 返回类型， 请升级工具", function.FunctionType.List.Elem.Map.Key.Type, function.FunctionType.List.Elem.Map.Value.Type))
 							}
@@ -572,7 +586,7 @@ func (g *protoGenerator) handleStruct(s *thrifter.Struct) {
 				} else if ele.FieldType.List.Elem.Type == thrifter.FIELD_TYPE_MAP {
 					if ele.FieldType.List.Elem.Map.Key.Type == thrifter.FIELD_TYPE_BASE && ele.FieldType.List.Elem.Map.Value.Type == thrifter.FIELD_TYPE_BASE {
 						keyType := ele.FieldType.List.Elem.Map.Key.BaseType
-						valueType := ele.FieldType.List.Elem.Map.Key.BaseType
+						valueType := ele.FieldType.List.Elem.Map.Value.BaseType
 
 						typeNameOrIdent = g.conf.baseProtoNs + "." + "Map" + utils.CaseConvert("upperFirstChar", keyType) + "To" + utils.CaseConvert("upperFirstChar", valueType)
 					}
@@ -692,7 +706,7 @@ func (g *protoGenerator) writeFunctionArgs(args []*thrifter.Field) {
 				// list<map> 从 base 中定义
 				if ele.FieldType.List.Elem.Type == thrifter.FIELD_TYPE_MAP {
 					keyType := ele.FieldType.List.Elem.Map.Key.BaseType
-					valueType := ele.FieldType.List.Elem.Map.Key.BaseType
+					valueType := ele.FieldType.List.Elem.Map.Value.BaseType
 
 					fieldType = g.conf.baseProtoNs + "." + "Map" + utils.CaseConvert("upperFirstChar", keyType) + "To" + utils.CaseConvert("upperFirstChar", valueType)
 				}
