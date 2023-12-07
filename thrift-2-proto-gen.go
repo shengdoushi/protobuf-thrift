@@ -533,6 +533,7 @@ func (g *protoGenerator) handleEnum(e *thrifter.Enum) {
 }
 
 func (g *protoGenerator) handleStruct(s *thrifter.Struct) {
+	structName := ""
 	for g.currentToken != s.EndToken {
 		switch g.currentToken.Type {
 		case thrifter.T_COMMENT:
@@ -548,6 +549,7 @@ func (g *protoGenerator) handleStruct(s *thrifter.Struct) {
 			// consume { token
 			g.currentToken = g.currentToken.Next
 			g.protoContent.WriteString(fmt.Sprintf("message %s {", utils.CaseConvert(g.conf.nameCase, s.Ident)))
+			structName = s.Ident
 
 		default:
 			hash := thrifter.GenTokenHash(g.currentToken)
@@ -567,8 +569,18 @@ func (g *protoGenerator) handleStruct(s *thrifter.Struct) {
 				typeNameOrIdent := ""
 				if ele.FieldType.List.Elem.Type == thrifter.FIELD_TYPE_BASE {
 					typeNameOrIdent = ele.FieldType.List.Elem.BaseType
+				} else if ele.FieldType.List.Elem.Type == thrifter.FIELD_TYPE_MAP {
+					if ele.FieldType.List.Elem.Map.Key.Type == thrifter.FIELD_TYPE_BASE && ele.FieldType.List.Elem.Map.Value.Type == thrifter.FIELD_TYPE_BASE {
+						keyType := ele.FieldType.List.Elem.Map.Key.BaseType
+						valueType := ele.FieldType.List.Elem.Map.Key.BaseType
+
+						typeNameOrIdent = g.conf.baseProtoNs + "." + "Map" + utils.CaseConvert("upperFirstChar", keyType) + "To" + utils.CaseConvert("upperFirstChar", valueType)
+					}
 				} else {
 					typeNameOrIdent = ele.FieldType.List.Elem.Ident
+				}
+				if typeNameOrIdent == "" {
+					panic(fmt.Sprintf("convert %s.%s  (id:%d) fail", structName, name, ele.ID))
 				}
 				fieldType, _ := g.typeConverter(typeNameOrIdent)
 
