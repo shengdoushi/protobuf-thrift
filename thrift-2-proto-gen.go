@@ -49,6 +49,7 @@ type ProtoGeneratorConfig struct {
 	baseProtoNs        string
 	phpBridgeNs        string
 	enumFieldAsInt     bool
+	phpBridgeOutputDir string
 }
 
 func (c ProtoGeneratorConfig) getMixGenPhpNs() string {
@@ -797,7 +798,7 @@ func (g *protoGenerator) Sink() (err error) {
 		_, err = file.WriteString(g.protoContent.String())
 
 		if g.conf.phpBridgeNs != "" && len(g.thriftServiceNames) > 0 {
-			outputDirPath := g.conf.outputDir
+			outputDirPath := g.conf.phpBridgeOutputDir
 			for _, v := range strings.Split(strings.TrimLeft(g.conf.phpBridgeNs, "\\"), "\\")[1:] {
 				outputDirPath = filepath.Join(outputDirPath, v)
 			}

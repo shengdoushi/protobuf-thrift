@@ -44,10 +44,11 @@ type RunnerConfig struct {
 	BaseProtoNs        string
 	PhpBridgeNs        string
 	EnumFieldAsInt     bool
+	PhpBridgeOutputDir string
 }
 
 func NewRunner() (res *Runner, err error) {
-	var rawContent, inputPath, outputDir, taskType, useSpaceIndent, indentSpace, expSwitch, fixNamespace, baseProtoFile, baseProtoNs, phpBridgeNs string
+	var rawContent, inputPath, outputDir, taskType, useSpaceIndent, indentSpace, expSwitch, fixNamespace, baseProtoFile, baseProtoNs, phpBridgeNs, phpBridgeOutputDir string
 	var nameCase, fieldCase string
 	var syntaxStr, recursiveStr string
 	var forceFieldOptional, enumFieldAsInt bool
@@ -69,6 +70,7 @@ func NewRunner() (res *Runner, err error) {
 	flag.StringVar(&baseProtoNs, "base-proto-ns", "", "base proto namespace")
 	flag.StringVar(&phpBridgeNs, "php-bridge-ns", "", "if set, will generate php bridge file")
 	flag.BoolVar(&enumFieldAsInt, "enum-field-as-int", false, "if set, enum will generate as int")
+	flag.StringVar(&phpBridgeOutputDir, "php-bridge-output-dir", outputDir, "if not set, will use -o")
 
 	flag.Parse() // after declaring flags we need to call it
 
@@ -133,6 +135,7 @@ func NewRunner() (res *Runner, err error) {
 		BaseProtoNs:        baseProtoNs,
 		PhpBridgeNs:        phpBridgeNs,
 		EnumFieldAsInt:     enumFieldAsInt,
+		PhpBridgeOutputDir: phpBridgeOutputDir,
 	}
 	res = &Runner{
 		Config: config,

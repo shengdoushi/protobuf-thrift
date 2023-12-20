@@ -254,6 +254,7 @@ func (g *generator) initSubGenerator(fileInfos []FileInfo) (err error) {
 				baseProtoNs:        g.conf.BaseProtoNs,
 				phpBridgeNs:        g.conf.PhpBridgeNs,
 				enumFieldAsInt:     g.conf.EnumFieldAsInt,
+				phpBridgeOutputDir: g.conf.PhpBridgeOutputDir,
 			}
 			generator, err = NewProtoGenerator(conf)
 			if err != nil {
@@ -309,6 +310,7 @@ func (g *generator) initSubGeneratorForRawContent() (err error) {
 			baseProtoNs:        g.conf.BaseProtoNs,
 			phpBridgeNs:        g.conf.PhpBridgeNs,
 			enumFieldAsInt:     g.conf.EnumFieldAsInt,
+			phpBridgeOutputDir: g.conf.PhpBridgeOutputDir,
 		}
 		generator, err = NewProtoGenerator(conf)
 		if err != nil {
