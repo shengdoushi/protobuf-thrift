@@ -3,6 +3,7 @@ package pbthrift
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,17 +16,18 @@ import (
 )
 
 type protoGenerator struct {
-	conf                *ProtoGeneratorConfig
-	def                 *thrifter.Thrift
-	file                *os.File
-	protoContent        bytes.Buffer
-	thriftBridgeContent bytes.Buffer
-	grpcBridgeContent   bytes.Buffer
-	currentToken        *thrifter.Token
-	packageDeclare      string // used to detect whether has duplicate package
-	thriftRpcFuncs      []*thrifter.Function
-	thriftServiceNames  []string
-	thriftEnumNames     []string
+	conf                         *ProtoGeneratorConfig
+	def                          *thrifter.Thrift
+	file                         *os.File
+	protoContent                 bytes.Buffer
+	thriftBridgeContent          bytes.Buffer
+	grpcBridgeContent            bytes.Buffer
+	currentToken                 *thrifter.Token
+	packageDeclare               string // used to detect whether has duplicate package
+	thriftRpcFuncs               []*thrifter.Function
+	thriftServiceNames           []string
+	thriftEnumNames              []string
+	thriftStructSimpleFlatValues map[string]bool
 }
 
 type ProtoGeneratorConfig struct {
@@ -101,9 +103,10 @@ func NewProtoGenerator(conf *ProtoGeneratorConfig) (res SubGenerator, err error)
 	}
 
 	res = &protoGenerator{
-		conf: conf,
-		def:  definition,
-		file: file,
+		conf:                         conf,
+		def:                          definition,
+		file:                         file,
+		thriftStructSimpleFlatValues: make(map[string]bool),
 	}
 	return
 }
@@ -347,7 +350,12 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 							g.grpcBridgeContent.WriteString(fmt.Sprintf("\t\tif (!is_null($%s)) $grpcRequest->set%s($%s);\n", arg.Ident, utils.CaseConvert("upperFirstChar", arg.Ident), arg.Ident))
 						} else {
 							bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("\\com\\common\\GrpcToolkit::messageToThrift($request->get%s(), \\%s\\%s::class)", utils.CaseConvert("upperFirstChar", arg.Ident), strings.ReplaceAll(g.packageDeclare, ".", "\\"), utils.CaseConvert(g.conf.nameCase, arg.FieldType.Ident)))
-							g.grpcBridgeContent.WriteString(fmt.Sprintf("\t\tif (!is_null($%s)) $grpcRequest->set%s(new %s\\%s(array_filter((array)$%s, fn ($item) => !is_null($item))));\n", arg.Ident, utils.CaseConvert("upperFirstChar", arg.Ident), g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, arg.FieldType.Ident), arg.Ident))
+
+							if isSimple, ok := g.thriftStructSimpleFlatValues[arg.FieldType.Ident]; ok && isSimple {
+								g.grpcBridgeContent.WriteString(fmt.Sprintf("\t\tif (!is_null($%s)) $grpcRequest->set%s(new %s\\%s(array_filter((array)$%s, fn ($item) => !is_null($item))));\n", arg.Ident, utils.CaseConvert("upperFirstChar", arg.Ident), g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, arg.FieldType.Ident), arg.Ident))
+							} else {
+								g.grpcBridgeContent.WriteString(fmt.Sprintf("\t\tif (!is_null($%s)) $grpcRequest->set%s(\\com\\common\\GrpcToolkit::thriftToProtobuf($%s, %s\\%s::class));\n", arg.Ident, utils.CaseConvert("upperFirstChar", arg.Ident), arg.Ident, g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, arg.FieldType.Ident)))
+							}
 						}
 					} else if arg.FieldType.Type == thrifter.FIELD_TYPE_LIST {
 						if arg.FieldType.List.Elem.Type == thrifter.FIELD_TYPE_BASE {
@@ -359,7 +367,15 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 								g.grpcBridgeContent.WriteString(fmt.Sprintf("\t\tif (!is_null($%s)) $grpcRequest->set%s($%s);\n", arg.Ident, utils.CaseConvert("upperFirstChar", arg.Ident), arg.Ident))
 							} else {
 								bridgeFuncArgs = append(bridgeFuncArgs, fmt.Sprintf("array_map(fn ($item) => \\com\\common\\GrpcToolkit::messageToThrift($item, \\%s\\%s::class), iterator_to_array($request->get%s()))", strings.ReplaceAll(g.packageDeclare, ".", "\\"), utils.CaseConvert(g.conf.nameCase, arg.FieldType.List.Elem.Ident), utils.CaseConvert("upperFirstChar", arg.Ident)))
-								g.grpcBridgeContent.WriteString(fmt.Sprintf("\t\tif (!is_null($%s)) $grpcRequest->set%s(array_map(fn ($item) => new %s\\%s(array_filter((array)$item, fn ($item) => !is_null($item))), $%s));\n", arg.Ident, utils.CaseConvert("upperFirstChar", arg.Ident), g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, arg.FieldType.List.Elem.Ident), arg.Ident))
+
+								if isSimple, ok := g.thriftStructSimpleFlatValues[arg.FieldType.List.Elem.Ident]; ok && isSimple {
+									g.grpcBridgeContent.WriteString(fmt.Sprintf("\t\tif (!is_null($%s)) $grpcRequest->set%s(array_map(fn ($item) => new %s\\%s(array_filter((array)$item, fn ($item) => !is_null($item))), $%s));\n", arg.Ident, utils.CaseConvert("upperFirstChar", arg.Ident), g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, arg.FieldType.List.Elem.Ident), arg.Ident))
+								} else {
+									g.grpcBridgeContent.WriteString(fmt.Sprintf("\t\tif (!is_null($%s)) $grpcRequest->set%s(array_map(fn ($item) => \\com\\common\\GrpcToolkit::thriftToProtobuf($item, %s\\%s::class), $%s));\n", arg.Ident, utils.CaseConvert("upperFirstChar", arg.Ident), g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, arg.FieldType.List.Elem.Ident), arg.Ident))
+									g.grpcBridgeContent.WriteString("\n" + arg.FieldType.List.Elem.Ident + ", \n")
+									d, _ := json.Marshal(g.thriftStructSimpleFlatValues)
+									g.grpcBridgeContent.WriteString("\n" + string(d) + "\n")
+								}
 							}
 						} else if arg.FieldType.List.Elem.Type == thrifter.FIELD_TYPE_MAP {
 							if arg.FieldType.List.Elem.Map.Key.Type == thrifter.FIELD_TYPE_BASE && arg.FieldType.List.Elem.Map.Value.Type == thrifter.FIELD_TYPE_BASE {
@@ -406,7 +422,11 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 							bridgeReturnValue = "$result"
 							grpcBridgeReturnValue = "$grpcResponse->getValue()"
 						} else {
-							bridgeReturnValue = fmt.Sprintf("new %s\\%s(array_filter((array)$result, fn ($item) => !is_null($item)))", g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, function.FunctionType.Ident))
+							if isSimple, ok := g.thriftStructSimpleFlatValues[function.FunctionType.Ident]; ok && isSimple {
+								bridgeReturnValue = fmt.Sprintf("new %s\\%s(array_filter((array)$result, fn ($item) => !is_null($item)))", g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, function.FunctionType.Ident))
+							} else {
+								bridgeReturnValue = fmt.Sprintf("\\com\\common\\GrpcToolkit::thriftToProtobuf($result, %s\\%s::class)", g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, function.FunctionType.Ident))
+							}
 							grpcBridgeReturnValue = fmt.Sprintf("\\com\\common\\GrpcToolkit::messageToThrift($grpcResponse->getValue(), \\%s\\%s::class)", strings.ReplaceAll(g.packageDeclare, ".", "\\"), utils.CaseConvert(g.conf.nameCase, function.FunctionType.Ident))
 						}
 					} else if function.FunctionType.Type == thrifter.FIELD_TYPE_LIST {
@@ -418,7 +438,11 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 								bridgeReturnValue = fmt.Sprintf("$result")
 								grpcBridgeReturnValue = "$grpcResponse->getValue()"
 							} else {
-								bridgeReturnValue = fmt.Sprintf("array_map(fn ($item) => new %s\\%s(array_filter((array)$item, fn ($item) => !is_null($item))), $result)", g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, function.FunctionType.List.Elem.Ident))
+								if isSimple, ok := g.thriftStructSimpleFlatValues[function.FunctionType.List.Elem.Ident]; ok && isSimple {
+									bridgeReturnValue = fmt.Sprintf("array_map(fn ($item) => new %s\\%s(array_filter((array)$item, fn ($item) => !is_null($item))), $result)", g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, function.FunctionType.List.Elem.Ident))
+								} else {
+									bridgeReturnValue = fmt.Sprintf("array_map(fn ($item) => \\com\\common\\GrpcToolkit::thriftToProtobuf($item, %s\\%s::class), $result)", g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, function.FunctionType.List.Elem.Ident))
+								}
 								grpcBridgeReturnValue = fmt.Sprintf("array_map(fn ($item) => \\com\\common\\GrpcToolkit::messageToThrift($item, \\%s\\%s::class), iterator_to_array($grpcResponse->getValue()))", strings.ReplaceAll(g.packageDeclare, ".", "\\"), utils.CaseConvert(g.conf.nameCase, function.FunctionType.List.Elem.Ident))
 							}
 						} else if function.FunctionType.List.Elem.Type == thrifter.FIELD_TYPE_MAP {
@@ -545,6 +569,7 @@ func (g *protoGenerator) handleEnum(e *thrifter.Enum) {
 
 func (g *protoGenerator) handleStruct(s *thrifter.Struct) {
 	structName := ""
+	isSimpleFlatStruct := true // 含有 message 的子结构的为 false
 	for g.currentToken != s.EndToken {
 		switch g.currentToken.Type {
 		case thrifter.T_COMMENT:
@@ -586,9 +611,12 @@ func (g *protoGenerator) handleStruct(s *thrifter.Struct) {
 						valueType := ele.FieldType.List.Elem.Map.Value.BaseType
 
 						typeNameOrIdent = g.conf.baseProtoNs + "." + "Map" + utils.CaseConvert("upperFirstChar", keyType) + "To" + utils.CaseConvert("upperFirstChar", valueType)
+					} else {
+						isSimpleFlatStruct = false
 					}
 				} else {
 					typeNameOrIdent = ele.FieldType.List.Elem.Ident
+					isSimpleFlatStruct = false
 				}
 				if typeNameOrIdent == "" {
 					panic(fmt.Sprintf("convert %s.%s  (id:%d) fail", structName, name, ele.ID))
@@ -606,11 +634,13 @@ func (g *protoGenerator) handleStruct(s *thrifter.Struct) {
 					fieldType, _ = g.typeConverter(ele.FieldType.Map.Value.BaseType)
 				} else {
 					fieldType, _ = g.typeConverter(ele.FieldType.Map.Value.Ident)
+					isSimpleFlatStruct = false
 				}
 				if ele.FieldType.Map.Key.Type == thrifter.FIELD_TYPE_BASE {
 					keyType, _ = g.typeConverter(ele.FieldType.Map.Key.BaseType)
 				} else {
 					keyType, _ = g.typeConverter(ele.FieldType.Map.Key.Ident)
+					isSimpleFlatStruct = false
 				}
 				g.writeIndent()
 				if optional {
@@ -628,6 +658,9 @@ func (g *protoGenerator) handleStruct(s *thrifter.Struct) {
 						typeNameOrIdent = "i32"
 					} else {
 						typeNameOrIdent = ele.FieldType.Ident
+						if !g.checkIdentIsEnum(ele.FieldType.Ident) {
+							isSimpleFlatStruct = false
+						}
 					}
 				}
 				fieldType, _ := g.typeConverter(typeNameOrIdent)
@@ -645,6 +678,7 @@ func (g *protoGenerator) handleStruct(s *thrifter.Struct) {
 		}
 	}
 
+	g.thriftStructSimpleFlatValues[structName] = isSimpleFlatStruct
 	g.protoContent.WriteString("}")
 	g.currentToken = s.EndToken
 	return
