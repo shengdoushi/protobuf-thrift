@@ -3,7 +3,6 @@ package pbthrift
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -372,9 +371,6 @@ func (g *protoGenerator) handleService(s *thrifter.Service) {
 									g.grpcBridgeContent.WriteString(fmt.Sprintf("\t\tif (!is_null($%s)) $grpcRequest->set%s(array_map(fn ($item) => new %s\\%s(array_filter((array)$item, fn ($item) => !is_null($item))), $%s));\n", arg.Ident, utils.CaseConvert("upperFirstChar", arg.Ident), g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, arg.FieldType.List.Elem.Ident), arg.Ident))
 								} else {
 									g.grpcBridgeContent.WriteString(fmt.Sprintf("\t\tif (!is_null($%s)) $grpcRequest->set%s(array_map(fn ($item) => \\com\\common\\GrpcToolkit::thriftToProtobuf($item, %s\\%s::class), $%s));\n", arg.Ident, utils.CaseConvert("upperFirstChar", arg.Ident), g.conf.getMixGenPhpNs(), utils.CaseConvert(g.conf.nameCase, arg.FieldType.List.Elem.Ident), arg.Ident))
-									g.grpcBridgeContent.WriteString("\n" + arg.FieldType.List.Elem.Ident + ", \n")
-									d, _ := json.Marshal(g.thriftStructSimpleFlatValues)
-									g.grpcBridgeContent.WriteString("\n" + string(d) + "\n")
 								}
 							}
 						} else if arg.FieldType.List.Elem.Type == thrifter.FIELD_TYPE_MAP {
